@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the dataset
-file_path = r"C:\Users\kadir\VsPy\Git\Machine Learning\DataSet\1-titanic.csv"
+file_path = "1-titanic.csv"
 titanic_data = pd.read_csv(file_path)
 
 # 1. Check for missing values
