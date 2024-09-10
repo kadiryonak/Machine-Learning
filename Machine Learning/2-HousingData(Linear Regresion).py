@@ -1,6 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+#What is Linear Regresion
 
 # Load the dataset
 housing_data = r"C:\Users\kadir\VsPy\Git\Machine Learning\DataSet\2-HousingData.csv"
@@ -87,9 +88,20 @@ plt.ylabel('Predicted Values')
 plt.title('True vs Predicted Values')
 plt.show()
 
+
 # Display model coefficients
 coefficients = pd.DataFrame(model.coef_, X.columns, columns=['Coefficient'])
 print(coefficients)
+
+# Plot true vs predicted values for the first linear regression model (trial 1)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, label="Linear Regression Predictions", color='red', alpha=0.6)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, label="Ideal Line")
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values (Linear Regression - Trial 1)')
+plt.legend()
+plt.show()
 
 # Enhanced model with feature engineering (trial 2)
 print('trial 2')
@@ -133,6 +145,15 @@ print(f'R² Score: {r2}')
 # Display model coefficients
 coefficients = pd.DataFrame(model.coef_, X.columns, columns=['Coefficient'])
 print(coefficients)
+# Plot true vs predicted values for the second linear regression model (trial 2)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, label="Enhanced Linear Regression Predictions", color='green', alpha=0.6)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, label="Ideal Line")
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values (Enhanced Linear Regression - Trial 2)')
+plt.legend()
+plt.show()
 
 # Ridge and Lasso regression (Trial 3)
 print('trial 3')
@@ -191,6 +212,26 @@ lasso_coefficients = pd.DataFrame(lasso_model.coef_, X.columns, columns=['Lasso 
 print(ridge_coefficients)
 print(lasso_coefficients)
 
+# Plot true vs predicted values for Ridge
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred_ridge, label="Ridge Predictions", color='blue', alpha=0.6)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, label="Ideal Line")
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values (Ridge)')
+plt.legend()
+plt.show()
+
+# Plot true vs predicted values for Lasso
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred_lasso, label="Lasso Predictions", color='green', alpha=0.6)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2, label="Ideal Line")
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values (Lasso)')
+plt.legend()
+plt.show()
+
 # Polynomial regression (interaction terms)
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -213,3 +254,13 @@ r2_poly = r2_score(y_test_poly, y_pred_poly)
 # Print results of polynomial regression
 print(f"Polynomial Mean Squared Error (MSE): {mse_poly}")
 print(f"Polynomial R² Score: {r2_poly}")
+
+# Plot true vs predicted values for Polynomial regression
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test_poly, y_pred_poly, label="Polynomial Predictions", color='orange', alpha=0.6)
+plt.plot([y_test_poly.min(), y_test_poly.max()], [y_test_poly.min(), y_test_poly.max()], 'k--', lw=2, label="Ideal Line")
+plt.xlabel('True Values')
+plt.ylabel('Predicted Values')
+plt.title('True vs Predicted Values (Polynomial)')
+plt.legend()
+plt.show()
