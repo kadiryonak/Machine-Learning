@@ -1,7 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-#What is Linear Regresion
+
 
 # Load the dataset
 housing_data = r"...\Machine Learning\DataSet\2-HousingData.csv"
@@ -233,6 +233,7 @@ plt.legend()
 plt.show()
 
 # Polynomial regression (interaction terms)
+print("Trial 4")
 from sklearn.preprocessing import PolynomialFeatures
 
 # Add polynomial interaction terms
@@ -264,3 +265,38 @@ plt.ylabel('Predicted Values')
 plt.title('True vs Predicted Values (Polynomial)')
 plt.legend()
 plt.show()
+
+
+'''
+ Code Explanation and Model Trials 
+
+1. Data Loading and Analysis:
+   - The dataset is loaded, and initial exploration is performed (missing values, summary statistics, correlation matrix).
+   - Missing values are filled with the mean, and data distributions are visualized.
+
+Trial 1: Basic Linear Regression
+   - We create a simple linear regression model using all features.
+   - Results: 
+   - MSE: 25.02, R²: 0.6588.
+   - The model explains 65.88% of the variance in housing prices.
+   - Conclusion: Model lacks capturing non-linear relationships, leading to limited predictive power.
+
+ Trial 2: Enhanced Linear Regression (Feature Engineering)
+   - Feature engineering is applied (`LSTAT_log`, `RM_sq`, and `NOX_INDUS` interaction).
+   - Results: 
+   - MSE: 19.72, R²: 0.7311, showing improvement.
+   - Conclusion: Non-linear transformations and interactions improved the model.
+ Trial 3: Ridge and Lasso Regression
+   - Ridge and Lasso regularization are applied to prevent overfitting.
+   - Results: 
+   - Ridge: MSE 19.71, R²: 0.7312.
+   - Lasso: MSE 19.49, R²: 0.7342.
+   - Conclusion: Regularization slightly improves performance and shrinks less relevant coefficients.
+
+ Trial 4: Polynomial Regression
+   - Polynomial regression with degree 2 is applied to capture more complex relationships.
+   - Results: 
+   - MSE: 14.00, R²: 0.8090, providing the best fit.
+   - Conclusion: Polynomial regression significantly improves the model by capturing non-linear patterns.
+
+'''
