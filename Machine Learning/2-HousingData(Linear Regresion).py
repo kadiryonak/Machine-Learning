@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 #What is Linear Regresion
 
 # Load the dataset
-housing_data = r"C:\Users\kadir\VsPy\Git\Machine Learning\DataSet\2-HousingData.csv"
+housing_data = r"...\Machine Learning\DataSet\2-HousingData.csv"
 df = pd.read_csv(housing_data)
 
 # 1. Display the first 5 rows of the dataset
