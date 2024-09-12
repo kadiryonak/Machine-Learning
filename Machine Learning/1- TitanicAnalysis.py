@@ -144,22 +144,22 @@ print("\nFeature Importances:\n", feature_importance_df)
 '''
 This code analyzes the Titanic dataset to extract useful insights and train a machine learning model.
 
-1. **Data Loading and Preprocessing**: 
+1. Data Loading and Preprocessing: 
    - The Titanic dataset is loaded, and missing values in the 'Age', 'Fare', and 'Embarked' columns are filled.
    - Categorical variables like 'Sex' and 'Embarked' are encoded as numeric values for machine learning models.
    - New features like 'Family_Size' (number of family members) and 'Is_Alone' (whether the passenger was alone) are created.
 
-2. **Exploratory Data Analysis (EDA)**:
+2. Exploratory Data Analysis (EDA):
    - Several statistics are computed: missing values, survival rates by gender, class, and embarked location.
    - Visualization: Bar plots and histograms are created to show survival rates by gender, class, age, and embarked location.
    - Correlation matrix: The correlation between numeric features is calculated to understand their relationships.
 
-3. **Model Training**:
-   - A **Random Forest** classifier is trained on the data to predict the 'Survived' target variable.
+3. Model Training:
+   - A Random Forest classifier is trained on the data to predict the 'Survived' target variable.
    - The data is split into training and test sets, and the model is trained using the training data.
    - The model's accuracy is evaluated using the test data, and it outputs the accuracy score.
 
-4. **Feature Importance**:
+4. Feature Importance:
    - The feature importance is calculated and displayed, showing which features have the most impact on predicting survival.
 
 Through this analysis, we learn that gender (especially being female), class, and ticket fare are strong indicators of survival, while family size and age also play a role. This insight allows us to create predictive models that can accurately estimate survival rates based on these features.
