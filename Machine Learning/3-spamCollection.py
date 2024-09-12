@@ -299,3 +299,22 @@ print("Performance After ABC Algorithm:")
 print("F1 Score:", f1_optimized)
 print("Precision:", precision_optimized)
 print("Recall:", recall_optimized)
+
+'''
+The code includes a simple natural language processing application. It has stages such as reading and analyzing the data, 
+converting the data to lower case and removing unnecessary words. The reason is to give the model the most accurate and clean data.
+To get rid of unnecessary computational burden. As in other machine learning projects, we divide the data we have prepared into 
+two parts as 80% and 20%. The reason we do this is to test the accuracy of our model. 
+Since the model has not seen the test data before, it gives us important findings about our model. 
+We can answer these questions whether there has been too much learning or not. 
+Then we convert our data into vectors with the tf-i-df method. Because as in every artificial intelligence project, we work with numbers.
+Then we train it with logistic regression. Logistic regression uses the sigmoid activation function and is therefore very successful in classification tasks.
+The f1 score of 90% from the algorithm is actually very successful, but there are many optimization techniques that can be done. 
+And one of them is hyperparameter optimization. 
+Our data is not very complex and not very large, so a simple optimization algorithm is enough, 
+but I also used genetic and artifical bee colony algorithms, which are powerful meta-heuristic optimization techniques.
+There is not much difference in performance between them because these techniques are more complex and suitable for larger projects.  
+The reason I used these algorithms is to explain why there is more than one optimization algorithm. 
+Each of them can be successful in different tasks.
+Genetic algorithm evolution and ABC have mathematically modeled the swarm intelligence of bees. Anyone can look them up.
+'''
