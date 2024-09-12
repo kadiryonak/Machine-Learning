@@ -6,7 +6,7 @@ import re
 from nltk.corpus import stopwords
 
 # Load the dataset
-file_path = r"C:\Users\kadir\VsPy\Git\Machine Learning\DataSet\3-SMSSpamCollection.csv"
+file_path = r"...\Machine Learning\DataSet\3-SMSSpamCollection.csv"
 data = pd.read_csv(file_path, delimiter='\t', header=None, names=['label', 'message'])
 
 # 1. Label Distribution and Message Length Analysis
