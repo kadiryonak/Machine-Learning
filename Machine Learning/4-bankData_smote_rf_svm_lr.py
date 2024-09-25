@@ -180,3 +180,16 @@ print(f"ROC-AUC Score: {roc_auc:.4f}")
 # Detailed classification report
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred_important))
+
+'''
+In this code, classification models are applied on a banking dataset. First, the dataset was loaded and the characteristics of the data were analyzed. Then, categorical variables were converted to numeric values using LabelEncoder. After separating the dependent and independent variables, the dataset was divided into two parts as training and testing. To overcome the class imbalance in the data, the SMOTE method was applied and the training data was replicated.
+First, the Random Forest model was trained with the SMOTE applied data and the performances were calculated on the test data. 
+However, the results were low. Then the SVM model was used by scaling the data. 
+At this stage, the data was standardized with StandardScaler and an SVM model with balanced class weights was trained. The results of the SVM model were also obtained and the performance was analyzed. 
+However, again, the performance increased, although not significantly. But it is not enough.
+Then a new model was trained by selecting the 5 most important features according to the importance of the data to optimize it.
+By using the 5 most important features of the Random Forest model, the performance of this model increased slightly.
+Finally, the Logistic Regression model was applied. Again trained with important features, the performance of this model was evaluated. 
+The results, especially the ROC-AUC score increased. It is not at the desired level, but my aim is to compare different algorithms.
+One can also go for methods such as hyperparameter optimization or try other algorithms to get a better result.
+'''
