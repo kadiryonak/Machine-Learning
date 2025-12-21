@@ -1,320 +1,456 @@
-# Required libraries
+# =============================================================================
+# SMS Spam Classification with NLP and Optimization Algorithms
+# This script demonstrates text classification using various optimization techniques
+# =============================================================================
+"""
+This script uses custom ABC algorithm from 6-ABCAlgorithm.py for hyperparameter
+optimization instead of external libraries.
+"""
+
+# Import all necessary libraries
+import os
+import sys
+import re
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import Counter
-import re
+
+# NLTK for text processing
 from nltk.corpus import stopwords
 
+# Scikit-learn for ML
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score, precision_score, recall_score
+
+# Optimization libraries (Bayesian and GA)
+from bayes_opt import BayesianOptimization
+from deap import base, creator, tools, algorithms
+
+# Import custom ABC algorithm from our module
+# Add the current directory to path to import ABCAlgorithm
+sys.path.insert(0, os.path.dirname(__file__))
+from importlib import import_module
+
+# =============================================================================
+# Custom ABC for Hyperparameter Optimization
+# =============================================================================
+
+class ABCHyperparameterOptimizer:
+    """
+    ABC Algorithm adapted for hyperparameter optimization
+    Based on 6-ABCAlgorithm.py implementation
+    """
+    
+    def __init__(
+        self,
+        objective_function,  # Function to minimize (returns negative accuracy for maximization)
+        n_params: int = 1,
+        param_bounds: list = None,  # [(lower, upper), ...]
+        food_number: int = 20,
+        limit: int = 50,
+        max_iterations: int = 50,
+        seed: int = 42
+    ):
+        self.objective_function = objective_function
+        self.n_params = n_params
+        self.param_bounds = param_bounds or [(0.001, 10.0)] * n_params
+        self.food_number = food_number
+        self.limit = limit
+        self.max_iterations = max_iterations
+        
+        np.random.seed(seed)
+        
+        # Initialize food sources
+        self.foods = np.zeros((food_number, n_params))
+        self.function_values = np.ones(food_number) * np.inf
+        self.fitness = np.zeros(food_number)
+        self.trial = np.zeros(food_number)
+        
+        # Best solution tracking
+        self.global_best_value = np.inf
+        self.global_best_solution = np.zeros(n_params)
+        self.convergence_history = []
+    
+    def _calculate_fitness(self, func_value: float) -> float:
+        """Convert function value to fitness (higher is better)"""
+        if func_value >= 0:
+            return 1 / (func_value + 1)
+        else:
+            return 1 + abs(func_value)
+    
+    def _init_food_source(self, index: int):
+        """Initialize a single food source"""
+        for j in range(self.n_params):
+            lb, ub = self.param_bounds[j]
+            self.foods[index, j] = np.random.uniform(lb, ub)
+        
+        self.function_values[index] = self.objective_function(self.foods[index])
+        self.fitness[index] = self._calculate_fitness(self.function_values[index])
+        self.trial[index] = 0
+    
+    def _generate_neighbor(self, index: int) -> np.ndarray:
+        """Generate neighbor solution"""
+        param = np.random.randint(0, self.n_params)
+        neighbor = np.random.randint(0, self.food_number)
+        while neighbor == index:
+            neighbor = np.random.randint(0, self.food_number)
+        
+        new_solution = np.copy(self.foods[index])
+        phi = np.random.uniform(-1, 1)
+        new_solution[param] = self.foods[index, param] + phi * (
+            self.foods[index, param] - self.foods[neighbor, param]
+        )
+        
+        # Clip to bounds
+        lb, ub = self.param_bounds[param]
+        new_solution[param] = np.clip(new_solution[param], lb, ub)
+        
+        return new_solution
+    
+    def _employed_bees_phase(self):
+        """Employed bees search around their food sources"""
+        for i in range(self.food_number):
+            new_solution = self._generate_neighbor(i)
+            new_value = self.objective_function(new_solution)
+            new_fitness = self._calculate_fitness(new_value)
+            
+            if new_fitness > self.fitness[i]:
+                self.foods[i] = new_solution
+                self.function_values[i] = new_value
+                self.fitness[i] = new_fitness
+                self.trial[i] = 0
+            else:
+                self.trial[i] += 1
+    
+    def _calculate_probabilities(self) -> np.ndarray:
+        """Calculate selection probabilities"""
+        max_fitness = np.max(self.fitness)
+        return 0.9 * (self.fitness / max_fitness) + 0.1
+    
+    def _onlooker_bees_phase(self):
+        """Onlooker bees select food sources based on probability"""
+        probabilities = self._calculate_probabilities()
+        t = 0
+        i = 0
+        
+        while t < self.food_number:
+            if np.random.random() < probabilities[i]:
+                t += 1
+                new_solution = self._generate_neighbor(i)
+                new_value = self.objective_function(new_solution)
+                new_fitness = self._calculate_fitness(new_value)
+                
+                if new_fitness > self.fitness[i]:
+                    self.foods[i] = new_solution
+                    self.function_values[i] = new_value
+                    self.fitness[i] = new_fitness
+                    self.trial[i] = 0
+                else:
+                    self.trial[i] += 1
+            
+            i = (i + 1) % self.food_number
+    
+    def _scout_bees_phase(self):
+        """Scout bees abandon exhausted food sources"""
+        max_trial_idx = np.argmax(self.trial)
+        if self.trial[max_trial_idx] >= self.limit:
+            self._init_food_source(max_trial_idx)
+    
+    def _memorize_best(self):
+        """Remember the best solution"""
+        best_idx = np.argmin(self.function_values)
+        if self.function_values[best_idx] < self.global_best_value:
+            self.global_best_value = self.function_values[best_idx]
+            self.global_best_solution = np.copy(self.foods[best_idx])
+    
+    def optimize(self, verbose: bool = True) -> tuple:
+        """
+        Run ABC optimization
+        
+        Returns:
+            (best_params, best_value)
+        """
+        # Initialize population
+        for i in range(self.food_number):
+            self._init_food_source(i)
+        self._memorize_best()
+        
+        # Main loop
+        for iteration in range(self.max_iterations):
+            self._employed_bees_phase()
+            self._onlooker_bees_phase()
+            self._memorize_best()
+            self._scout_bees_phase()
+            
+            self.convergence_history.append(self.global_best_value)
+            
+            if verbose and (iteration + 1) % 10 == 0:
+                print(f"Iteration {iteration + 1}/{self.max_iterations}: Best = {self.global_best_value:.6f}")
+        
+        return self.global_best_solution, self.global_best_value
+
+
+# =============================================================================
+# 1. Data Loading and Exploration
+# =============================================================================
+
 # Load the dataset
-file_path = r"...\Machine Learning\DataSet\3-SMSSpamCollection.csv"
+file_path = os.path.join(os.path.dirname(__file__), "DataSet", "3-SMSSpamCollection.csv")
 data = pd.read_csv(file_path, delimiter='\t', header=None, names=['label', 'message'])
 
-# 1. Label Distribution and Message Length Analysis
-
-# Label distribution (number of spam and ham messages)
+# Label distribution
 label_distribution = data['label'].value_counts()
-
-# Calculate message lengths
 data['message_length'] = data['message'].apply(len)
-
-# General statistics about message length
 message_length_stats = data['message_length'].describe()
 
-# Print results
 print("Label Distribution:")
 print(label_distribution)
 print("\nMessage Length Statistics:")
 print(message_length_stats)
 
-# 2. Distribution of Message Lengths (Visualization)
-'''
-plt.figure(figsize=(10,6))
-data[data['label'] == 'ham']['message_length'].hist(bins=50, alpha=0.5, label='Ham')
-data[data['label'] == 'spam']['message_length'].hist(bins=50, alpha=0.5, label='Spam')
-plt.title('Distribution of Message Lengths')
-plt.xlabel('Message Length')
-plt.ylabel('Frequency')
-plt.legend()
-plt.show()
-'''
-# 3. Word Frequency Analysis
+# =============================================================================
+# 2. Text Preprocessing
+# =============================================================================
 
-# Clean messages (convert to lowercase, remove punctuation)
 def clean_message(message):
+    """Clean messages: convert to lowercase and remove punctuation"""
     message = message.lower()
     message = re.sub(r'\W', ' ', message)
     return message
 
-# Add cleaned messages
 data['clean_message'] = data['message'].apply(clean_message)
 
 # Word frequency analysis
 all_words = ' '.join(data['clean_message']).split()
 word_freq = Counter(all_words)
-
-# Top 10 most common words
 common_words = word_freq.most_common(10)
 print("\nTop 10 Most Common Words:")
 print(common_words)
 
-# 4. Data Preprocessing and Cleaning
-
-# Load stopwords from NLTK
-# Use 'turkish' instead of 'english' for Turkish stopwords
-stop_words = set(stopwords.words('english'))
-
 # Remove stopwords
-data['clean_message'] = data['clean_message'].apply(lambda x: ' '.join([word for word in x.split() if word not in stop_words]))
+stop_words = set(stopwords.words('english'))
+data['clean_message'] = data['clean_message'].apply(
+    lambda x: ' '.join([word for word in x.split() if word not in stop_words])
+)
 
-# Show the first few cleaned messages
 print("\nCleaned Messages (First 5 Rows):")
 print(data['clean_message'].head())
 
-from sklearn.model_selection import train_test_split
+# =============================================================================
+# 3. Feature Extraction
+# =============================================================================
 
 X = data['clean_message']
 y = data['label'].apply(lambda x: 1 if x == 'spam' else 0)
 
-# Split into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# TF-IDF Vectorization
 vectorizer = TfidfVectorizer(max_features=3000)
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
 
-from sklearn.linear_model import LogisticRegression
+# =============================================================================
+# 4. Baseline Logistic Regression
+# =============================================================================
+print("\n" + "="*50)
+print("Baseline Logistic Regression")
+print("="*50)
 
-# Create and train the logistic regression model
-model = LogisticRegression()
+model = LogisticRegression(max_iter=1000)
 model.fit(X_train_tfidf, y_train)
-
-from sklearn.metrics import f1_score
-
-# Make predictions on the test set
 y_pred = model.predict(X_test_tfidf)
 
-f1 = f1_score(y_test, y_pred)
-print("F1 Score:", f1)
+print(f"F1 Score: {f1_score(y_test, y_pred):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+print(f"Recall: {recall_score(y_test, y_pred):.4f}")
 
-from sklearn.metrics import precision_score, recall_score
+# =============================================================================
+# 5. Bayesian Optimization
+# =============================================================================
+print("\n" + "="*50)
+print("Bayesian Optimization")
+print("="*50)
 
-precision = precision_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred)
-
-print("Precision:", precision)
-print("Recall:", recall)
-
-
-# Required libraries for Bayesian Optimization
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
-from bayes_opt import BayesianOptimization
-
-# Set up the Bayesian optimization function
 def optimize_log_reg(C):
     model = LogisticRegression(C=C, max_iter=1000)
     accuracy = cross_val_score(model, X_train_tfidf, y_train, cv=5, scoring='accuracy').mean()
     return accuracy
 
-# Set up Bayesian optimization
 bayes_optimizer = BayesianOptimization(
-    f=optimize_log_reg,  # Function to optimize
-    pbounds={'C': (0.001, 10)},  # Range of C parameter
-    random_state=42,  # Random seed for reproducibility
-    verbose=2,  # Show progress
-    allow_duplicate_points=True  # Allow duplicate values for C
+    f=optimize_log_reg,
+    pbounds={'C': (0.001, 10)},
+    random_state=42,
+    verbose=0,
+    allow_duplicate_points=True
 )
 
-# Run the optimization
 bayes_optimizer.maximize(n_iter=10)
+best_C_bayes = bayes_optimizer.max['params']['C']
+print(f"Best C parameter: {best_C_bayes:.4f}")
 
-# Get the best parameters
-best_params = bayes_optimizer.max['params']
-best_C = best_params['C']
+model_bayes = LogisticRegression(C=best_C_bayes, max_iter=1000)
+model_bayes.fit(X_train_tfidf, y_train)
+y_pred_bayes = model_bayes.predict(X_test_tfidf)
 
-print(f"Best C parameter: {best_C}")
+print("\nPerformance After Bayesian Optimization:")
+print(f"F1 Score: {f1_score(y_test, y_pred_bayes):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred_bayes):.4f}")
+print(f"Recall: {recall_score(y_test, y_pred_bayes):.4f}")
 
-# Retrain the model with the optimized parameters
-model_optimized = LogisticRegression(C=best_C, max_iter=1000)
-model_optimized.fit(X_train_tfidf, y_train)
+# =============================================================================
+# 6. Genetic Algorithm Optimization
+# =============================================================================
+print("\n" + "="*50)
+print("Genetic Algorithm Optimization")
+print("="*50)
 
-# Make predictions
-y_pred_optimized = model_optimized.predict(X_test_tfidf)
+# Create DEAP types (check if already exists)
+if not hasattr(creator, "FitnessMax"):
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+if not hasattr(creator, "Individual"):
+    creator.create("Individual", list, fitness=creator.FitnessMax)
 
-# Performance metrics
-f1_optimized = f1_score(y_test, y_pred_optimized)
-precision_optimized = precision_score(y_test, y_pred_optimized)
-recall_optimized = recall_score(y_test, y_pred_optimized)
-
-# Print results
-print("Performance After Bayesian Optimization:")
-print("F1 Score:", f1_optimized)
-print("Precision:", precision_optimized)
-print("Recall:", recall_optimized)
-
-
-# Required libraries for Genetic Algorithm
-import numpy as np
-from deap import base, creator, tools, algorithms
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
-
-# Create fitness function (maximize accuracy)
-creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-creator.create("Individual", list, fitness=creator.FitnessMax)
-
-# Create individual function (C value in range 0.001 - 10)
 def create_individual():
     return [np.random.uniform(0.001, 10)]
 
-# Create population function
 toolbox = base.Toolbox()
 toolbox.register("individual", tools.initIterate, creator.Individual, create_individual)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-# Define fitness function
 def evaluate(individual):
     C_value = individual[0]
     model = LogisticRegression(C=C_value, max_iter=1000)
     accuracy = cross_val_score(model, X_train_tfidf, y_train, cv=5, scoring='accuracy').mean()
     return accuracy,
 
-# Set up crossover, mutation, and selection functions for DEAP
-toolbox.register("mate", tools.cxBlend, alpha=0.5)  # Crossover
-toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.2)  # Mutation
-toolbox.register("select", tools.selTournament, tournsize=3)  # Selection
-toolbox.register("evaluate", evaluate)  # Fitness function
+toolbox.register("mate", tools.cxBlend, alpha=0.5)
+toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.2)
+toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("evaluate", evaluate)
 
-# Create population
-population = toolbox.population(n=20)  # Population of 20 individuals
+population = toolbox.population(n=20)
+NGEN, CXPB, MUTPB = 50, 0.5, 0.2
 
-# Genetic algorithm parameters
-NGEN = 100  # Number of generations
-CXPB = 0.5  # Crossover probability
-MUTPB = 0.2  # Mutation probability
-
-# Run the genetic algorithm
 for gen in range(NGEN):
-    print(f"-- Generation {gen + 1} --")
+    if gen % 10 == 0:
+        print(f"Generation {gen + 1}/{NGEN}")
     
-    # Calculate fitness values for individuals
     fitnesses = list(map(toolbox.evaluate, population))
     for ind, fit in zip(population, fitnesses):
         ind.fitness.values = fit
     
-    # Select the best individuals
     offspring = toolbox.select(population, len(population))
     offspring = list(map(toolbox.clone, offspring))
 
-    # Apply crossover
     for child1, child2 in zip(offspring[::2], offspring[1::2]):
         if np.random.rand() < CXPB:
             toolbox.mate(child1, child2)
             del child1.fitness.values
             del child2.fitness.values
     
-    # Apply mutation
     for mutant in offspring:
         if np.random.rand() < MUTPB:
             toolbox.mutate(mutant)
             del mutant.fitness.values
 
-    # Recalculate fitness values
     invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
     fitnesses = list(map(toolbox.evaluate, invalid_ind))
     for ind, fit in zip(invalid_ind, fitnesses):
         ind.fitness.values = fit
 
-    # Create new generation
     population[:] = offspring
 
-# Select the best individual
 best_individual = tools.selBest(population, 1)[0]
-best_C = best_individual[0]
-print(f"Best C value from Genetic Algorithm: {best_C}")
+best_C_ga = best_individual[0]
+print(f"Best C value from Genetic Algorithm: {best_C_ga:.4f}")
 
-# Retrain model with optimized parameters
-model_optimized = LogisticRegression(C=best_C, max_iter=1000)
-model_optimized.fit(X_train_tfidf, y_train)
+model_ga = LogisticRegression(C=best_C_ga, max_iter=1000)
+model_ga.fit(X_train_tfidf, y_train)
+y_pred_ga = model_ga.predict(X_test_tfidf)
 
-# Make predictions on test set
-y_pred_optimized = model_optimized.predict(X_test_tfidf)
+print("\nPerformance After Genetic Algorithm:")
+print(f"F1 Score: {f1_score(y_test, y_pred_ga):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred_ga):.4f}")
+print(f"Recall: {recall_score(y_test, y_pred_ga):.4f}")
 
-# Performance metrics
-f1_optimized = f1_score(y_test, y_pred_optimized)
-precision_optimized = precision_score(y_test, y_pred_optimized)
-recall_optimized = recall_score(y_test, y_pred_optimized)
+# =============================================================================
+# 7. Artificial Bee Colony (ABC) Algorithm - CUSTOM IMPLEMENTATION
+# =============================================================================
+print("\n" + "="*50)
+print("Artificial Bee Colony (ABC) Algorithm - Custom Implementation")
+print("="*50)
 
-# Print results
-print("Performance After Genetic Algorithm:")
-print("F1 Score:", f1_optimized)
-print("Precision:", precision_optimized)
-print("Recall:", recall_optimized)
+def abc_objective(params):
+    """
+    Objective function for ABC hyperparameter optimization
+    Returns negative accuracy (because ABC minimizes)
+    """
+    C_value = params[0]
+    model = LogisticRegression(C=C_value, max_iter=1000)
+    accuracy = cross_val_score(model, X_train_tfidf, y_train, cv=5, scoring='accuracy').mean()
+    return -accuracy  # Negative because ABC minimizes
 
+# Create and run ABC optimizer
+abc_optimizer = ABCHyperparameterOptimizer(
+    objective_function=abc_objective,
+    n_params=1,
+    param_bounds=[(0.001, 10.0)],
+    food_number=20,
+    limit=50,
+    max_iterations=50,
+    seed=42
+)
 
-# Required libraries for Artificial Bee Colony (ABC) Algorithm
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
-from niapy.algorithms.basic import ArtificialBeeColonyAlgorithm
-from niapy.task import Task
-from niapy.problems import Problem
+best_params, best_value = abc_optimizer.optimize(verbose=True)
+best_C_abc = best_params[0]
+print(f"\nBest C value from ABC: {best_C_abc:.4f}")
+print(f"Best accuracy: {-best_value:.4f}")
 
-# Define problem class for ABC
-class LogisticRegressionProblem(Problem):
-    def __init__(self):
-        super().__init__(dimension=1, lower=0.001, upper=10)  # Define bounds for C parameter
-       
-    def _evaluate(self, solution):
-        C_value = solution[0]
-        model = LogisticRegression(C=C_value, max_iter=1000)
-        accuracy = cross_val_score(model, X_train_tfidf, y_train, cv=5, scoring='accuracy').mean()
-        return -accuracy  # Minimize negative accuracy to maximize accuracy
+# Train with ABC optimized parameters
+model_abc = LogisticRegression(C=best_C_abc, max_iter=1000)
+model_abc.fit(X_train_tfidf, y_train)
+y_pred_abc = model_abc.predict(X_test_tfidf)
 
-# Set up and run ABC optimization
-task = Task(problem=LogisticRegressionProblem(), max_iters=100)  # Run for 100 iterations
-abc = ArtificialBeeColonyAlgorithm(population_size=20)  # 20 bee population
-best_solution = abc.run(task)  # Run and get the best solution
+print("\nPerformance After ABC Algorithm:")
+print(f"F1 Score: {f1_score(y_test, y_pred_abc):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred_abc):.4f}")
+print(f"Recall: {recall_score(y_test, y_pred_abc):.4f}")
 
-# Convert best C value to float
-best_C = float(best_solution[0])
-print(f"Best C value from ABC: {best_C}")
+# =============================================================================
+# 8. Results Comparison
+# =============================================================================
+print("\n" + "="*50)
+print("RESULTS COMPARISON")
+print("="*50)
+print(f"{'Method':<25} {'Best C':<12} {'F1 Score':<12}")
+print("-" * 49)
+print(f"{'Baseline':<25} {'1.0':<12} {f1_score(y_test, y_pred):.4f}")
+print(f"{'Bayesian Optimization':<25} {best_C_bayes:<12.4f} {f1_score(y_test, y_pred_bayes):.4f}")
+print(f"{'Genetic Algorithm':<25} {best_C_ga:<12.4f} {f1_score(y_test, y_pred_ga):.4f}")
+print(f"{'ABC (Custom)':<25} {best_C_abc:<12.4f} {f1_score(y_test, y_pred_abc):.4f}")
 
-# Train logistic regression model with the best C value
-model_optimized = LogisticRegression(C=best_C, max_iter=1000)
-model_optimized.fit(X_train_tfidf, y_train)
-
-# Make predictions on the test set
-y_pred_optimized = model_optimized.predict(X_test_tfidf)
-
-# Performance metrics
-f1_optimized = f1_score(y_test, y_pred_optimized)
-precision_optimized = precision_score(y_test, y_pred_optimized)
-recall_optimized = recall_score(y_test, y_pred_optimized)
-
-# Print results
-print("Performance After ABC Algorithm:")
-print("F1 Score:", f1_optimized)
-print("Precision:", precision_optimized)
-print("Recall:", recall_optimized)
-
+# =============================================================================
+# Summary and Explanation
+# =============================================================================
 '''
-The code includes a simple natural language processing application. It has stages such as reading and analyzing the data, 
-converting the data to lower case and removing unnecessary words. The reason is to give the model the most accurate and clean data.
-To get rid of unnecessary computational burden. As in other machine learning projects, we divide the data we have prepared into 
-two parts as 80% and 20%. The reason we do this is to test the accuracy of our model. 
-Since the model has not seen the test data before, it gives us important findings about our model. 
-We can answer these questions whether there has been too much learning or not. 
-Then we convert our data into vectors with the tf-i-df method. Because as in every artificial intelligence project, we work with numbers.
-Then we train it with logistic regression. Logistic regression uses the sigmoid activation function and is therefore very successful in classification tasks.
-The f1 score of 90% from the algorithm is actually very successful, but there are many optimization techniques that can be done. 
-And one of them is hyperparameter optimization. 
-Our data is not very complex and not very large, so a simple optimization algorithm is enough, 
-but I also used genetic and artifical bee colony algorithms, which are powerful meta-heuristic optimization techniques.
-There is not much difference in performance between them because these techniques are more complex and suitable for larger projects.  
-The reason I used these algorithms is to explain why there is more than one optimization algorithm. 
-Each of them can be successful in different tasks.
-Genetic algorithm evolution and ABC have mathematically modeled the swarm intelligence of bees. Anyone can look them up.
+This code demonstrates SMS spam classification with multiple optimization methods:
+
+1. Data Preprocessing:
+   - Text cleaning, stopword removal, TF-IDF vectorization
+
+2. Optimization Methods:
+   - Bayesian Optimization: Probabilistic model-based
+   - Genetic Algorithm: Evolution-inspired (DEAP library)
+   - ABC Algorithm: Bee swarm intelligence (CUSTOM implementation)
+
+3. Custom ABC Implementation:
+   - Employed bees: Exploit known solutions
+   - Onlooker bees: Select based on quality
+   - Scout bees: Explore new random solutions
+
+Key Insight: All methods achieve similar performance on this simple task.
+Complex optimization is more beneficial for higher-dimensional problems.
 '''
